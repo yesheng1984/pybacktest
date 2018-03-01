@@ -92,7 +92,7 @@ class Backtest(object):
         self.trdplot = self.sigplot = pybacktest.parts.Slicer(self.plot_trades,
                                                    obj=self.ohlc)
         self.eqplot = pybacktest.parts.Slicer(self.plot_equity, obj=self.ohlc)
-        self.run_time = time.strftime('%Y-%d-%m %H:%M', time.localtime())
+        self.run_time = time.strftime('%Y-%m-%d %H:%M', time.localtime())
         self.stats = StatEngine(lambda: self.equity)
 
     def __repr__(self):
@@ -215,3 +215,55 @@ class Backtest(object):
         # self.ohlc.O.ix[ix[0]:ix[-1]].plot(color='black', label='price')
         self.ohlc.O.ix[subset].plot(color='black', label='price')
         pylab.title('%s\nTrades for %s' % (self, subset))
+
+    def plot_maef(self, hist=False, subset=None):
+        if subset is None:
+            subset = slice(None, None)
+
+        trades = self.trades.ix[subset]
+        ohlc = self.ohlc.ix[subset]
+        trades['profit'] = (trades['price'] - trades['price'].shift()) * trades['vol'].shift()
+        trades['p_ratio'] = (trades['profit'] / trades['price'].shift()) * 100.
+
+        res = pandas.merge(ohlc, trades, how='outer', left_index=True, right_index=True)
+        dates = zip(trades.index[:-1], trades.index[1:])[::2]
+        res['direction'] = res['vol'] * -1
+
+        res['highest'] = 0
+        res['lowest'] = 0
+        res['mae'] = 0
+        res['mfe'] = 0
+        res['mae_ratio'] = 0
+        res['mfe_ratio'] = 0
+
+        for first, last in dates:
+            res.ix[last, 'highest'] = res[first:last].iloc[:-1]['H'].max()
+            res.ix[last, 'lowest'] = res[first:last].iloc[:-1]['L'].min()
+
+            if res.ix[last, 'direction'] == -1.0:
+                res.ix[last, 'mae'] = res.ix[last, 'highest'] - res.ix[first, 'O']
+                res.ix[last, 'mfe'] = res.ix[first, 'O'] - res.ix[last, 'lowest']
+            elif res.ix[last, 'direction'] == 1.0:
+                res.ix[last, 'mfe'] = res.ix[last, 'highest'] - res.ix[first, 'O']
+                res.ix[last, 'mae'] = res.ix[first, 'O'] - res.ix[last, 'lowest']
+
+            res.ix[last, 'mae_ratio'] = (res.ix[last, 'mae'] / res.ix[first, 'O']) * 100
+            res.ix[last, 'mfe_ratio'] = (res.ix[last, 'mfe'] / res.ix[first, 'O']) * 100
+
+        m_data = res[res['pos'] == 0][['profit', 'p_ratio', 'mae', 'mae_ratio', 'mfe', 'mfe_ratio']]
+        import matplotlib.pyplot as plt
+        _, ax = plt.subplots(2, 1)
+        m_data[m_data['profit'] > 0].plot.scatter('mae_ratio', 'p_ratio', ax=ax[0], color='r', marker='^', title='MAE')
+        m_data[m_data['profit'] <= 0].plot.scatter('mae_ratio', 'p_ratio', ax=ax[0], color='g', marker='v', grid=True)
+        m_data[m_data['profit'] > 0].plot.scatter('mfe_ratio', 'p_ratio', ax=ax[1], color='r', marker='^', title='MEF')
+        m_data[m_data['profit'] <= 0].plot.scatter('mfe_ratio', 'p_ratio', ax=ax[1], color='g', marker='v', grid=True)
+
+        if hist:
+            _, ax = plt.subplots(2, 1, figsize=(15, 8))
+            m_data[m_data['profit'] > 0]['mae_ratio'].plot.hist(ax=ax[0], color='r', bins=20, grid=True,
+                                                                title='Win trades(MAE)')
+            m_data['mae_ratio'].plot.hist(ax=ax[1], color='b', bins=20, grid=True, title='All trades(MAE)')
+            _, ax = plt.subplots(2, 1, figsize=(15, 8))
+            m_data[m_data['profit'] > 0]['mfe_ratio'].plot.hist(ax=ax[0], color='r', bins=20, grid=True,
+                                                                title='Win trades(MFE)')
+            m_data['mfe_ratio'].plot.hist(ax=ax[1], color='b', bins=20, grid=True, title='All trades(MFE)')

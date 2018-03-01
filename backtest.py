@@ -252,18 +252,18 @@ class Backtest(object):
 
         m_data = res[res['pos'] == 0][['profit', 'p_ratio', 'mae', 'mae_ratio', 'mfe', 'mfe_ratio']]
         import matplotlib.pyplot as plt
-        _, ax = plt.subplots(2, 1)
+        _, ax = plt.subplots(2, 1, figsize=(15,6))
         m_data[m_data['profit'] > 0].plot.scatter('mae_ratio', 'p_ratio', ax=ax[0], color='r', marker='^', title='MAE')
         m_data[m_data['profit'] <= 0].plot.scatter('mae_ratio', 'p_ratio', ax=ax[0], color='g', marker='v', grid=True)
         m_data[m_data['profit'] > 0].plot.scatter('mfe_ratio', 'p_ratio', ax=ax[1], color='r', marker='^', title='MEF')
         m_data[m_data['profit'] <= 0].plot.scatter('mfe_ratio', 'p_ratio', ax=ax[1], color='g', marker='v', grid=True)
 
         if hist:
-            _, ax = plt.subplots(2, 1, figsize=(15, 8))
+            _, ax = plt.subplots(2, 1, figsize=(15,6))
             m_data[m_data['profit'] > 0]['mae_ratio'].plot.hist(ax=ax[0], color='r', bins=20, grid=True,
                                                                 title='Win trades(MAE)')
             m_data['mae_ratio'].plot.hist(ax=ax[1], color='b', bins=20, grid=True, title='All trades(MAE)')
-            _, ax = plt.subplots(2, 1, figsize=(15, 8))
+            _, ax = plt.subplots(2, 1, figsize=(15,6))
             m_data[m_data['profit'] > 0]['mfe_ratio'].plot.hist(ax=ax[0], color='r', bins=20, grid=True,
                                                                 title='Win trades(MFE)')
             m_data['mfe_ratio'].plot.hist(ax=ax[1], color='b', bins=20, grid=True, title='All trades(MFE)')
